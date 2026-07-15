@@ -12,9 +12,12 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ onSubmit, onCancel, isSubmitting }: OrderFormProps) {
-  const clients = useClientStore((s) => s.getActiveClients())
-  const products = useProductStore((s) => s.getActiveProducts())
+  const allClients = useClientStore((s) => s.clients)
+  const allProducts = useProductStore((s) => s.products)
   const getProduct = useProductStore((s) => s.getProductById)
+
+  const clients = useMemo(() => allClients.filter((c) => c.isActive), [allClients])
+  const products = useMemo(() => allProducts.filter((p) => p.isActive), [allProducts])
 
   const [customerId, setCustomerId] = useState('')
   const [items, setItems] = useState<OrderFormItem[]>([])
