@@ -26,17 +26,17 @@ export function useOrders() {
           const product = productStore.getProductById(item.productId)
           if (!product) return { success: false, error: `Producto "${item.productName}" no encontrado` }
           if (!product.isActive) return { success: false, error: `El producto "${product.name}" está inactivo` }
-          if (!productStore.hasSufficientStock(item.productId, item.quantity)) {
+          if (!productStore.hasSufficientStock(item.productId, item.amount)) {
             return {
               success: false,
-              error: `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, solicitado: ${item.quantity}`,
+              error: `Stock insuficiente para "${product.name}". Disponible: ${product.stock}, solicitado: ${item.amount}`,
             }
           }
         }
 
         await createOrder({
           customerId: data.customerId,
-          items: data.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: data.items.map((i) => ({ productId: i.productId, amount: i.amount })),
         })
 
         await productStore.fetchProducts()

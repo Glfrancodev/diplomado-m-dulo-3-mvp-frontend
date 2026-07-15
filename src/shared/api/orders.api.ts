@@ -3,11 +3,16 @@ import type { Order, OrderStatus } from '../../modules/orders/types'
 
 export interface CreateOrderPayload {
   customerId: string
-  items: { productId: string; quantity: number }[]
+  items: { productId: string; amount: number }[]
+}
+
+export interface GetOrdersParams {
+  status?: OrderStatus
+  customerId?: string
 }
 
 export const ordersApi = {
-  getAll: () => api.get<Order[]>('/orders').then((r) => r.data),
+  getAll: (params?: GetOrdersParams) => api.get<Order[]>('/orders', { params }).then((r) => r.data),
 
   getById: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
 

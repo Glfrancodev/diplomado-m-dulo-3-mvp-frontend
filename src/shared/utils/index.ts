@@ -23,12 +23,12 @@ export const formatDateShort = (date: Date | string): string => {
 
 export const getOrderStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    PENDING: 'bg-yellow-100 text-yellow-800',
-    CONFIRMED: 'bg-blue-100 text-blue-800',
-    DELIVERED: 'bg-green-100 text-green-800',
-    CANCELLED: 'bg-red-100 text-red-800',
+    PENDING: 'bg-gold/15 text-gold-dark',
+    CONFIRMED: 'bg-brand/15 text-brand-deep',
+    DELIVERED: 'bg-mint-dark/15 text-mint-dark',
+    CANCELLED: 'bg-red-100 text-red-700',
   }
-  return colors[status] || 'bg-gray-100 text-gray-800'
+  return colors[status] || 'bg-gray-100 text-gray-700'
 }
 
 export const getOrderStatusLabel = (status: string): string => {

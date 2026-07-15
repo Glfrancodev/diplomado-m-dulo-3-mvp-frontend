@@ -16,7 +16,7 @@ export interface UpdateProductPayload {
 }
 
 export const productsApi = {
-  getAll: () => api.get<Product[]>('/products').then((r) => r.data),
+  getAll: (isActive?: boolean) => api.get<Product[]>('/products', { params: { isActive } }).then((r) => r.data),
 
   getById: (id: string) => api.get<Product>(`/products/${id}`).then((r) => r.data),
 
@@ -24,7 +24,7 @@ export const productsApi = {
     api.post<Product>('/products', data).then((r) => r.data),
 
   update: (id: string, data: UpdateProductPayload) =>
-    api.put<Product>(`/products/${id}`, data).then((r) => r.data),
+    api.patch<Product>(`/products/${id}`, data).then((r) => r.data),
 
   deactivate: (id: string) =>
     api.patch<Product>(`/products/${id}/deactivate`).then((r) => r.data),

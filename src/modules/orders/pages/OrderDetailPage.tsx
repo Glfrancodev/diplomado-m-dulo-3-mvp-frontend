@@ -18,31 +18,43 @@ export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { changeStatus } = useOrders()
-  const fetchOrders = useOrderStore((s) => s.fetchOrders)
-  const orders = useOrderStore((s) => s.orders)
+  const currentOrder = useOrderStore((s) => s.currentOrder)
+  const fetchOrderById = useOrderStore((s) => s.fetchOrderById)
+  const loading = useOrderStore((s) => s.loading)
   const { toasts, addToast, removeToast } = useToast()
 
-  const order = id ? orders.find((o) => o.id === id) : undefined
+  const order = currentOrder
 
   useEffect(() => {
-    if (orders.length === 0) fetchOrders()
-  }, [orders.length, fetchOrders])
+    if (id) fetchOrderById(id)
+  }, [id, fetchOrderById])
 
   if (!id) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Pedido no encontrado</p>
-        <Button className="mt-4" onClick={() => navigate('/orders')}>
-          Volver a Pedidos
-        </Button>
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Pedido no encontrado</p>
+          <Button className="mt-4" onClick={() => navigate('/orders')}>
+            Volver a Pedidos
+          </Button>
+        </div>
+    )
+  }
+
+  if (loading && !order) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
       </div>
     )
   }
 
   if (!order) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400">Pedido no encontrado</p>
+        <Button className="mt-4" onClick={() => navigate('/orders')}>
+          Volver a Pedidos
+        </Button>
       </div>
     )
   }
@@ -68,46 +80,46 @@ export function OrderDetailPage() {
         <div>
           <button
             onClick={() => navigate('/orders')}
-            className="text-sm text-blue-600 hover:text-blue-800 mb-2 inline-block"
+            className="text-sm text-brand hover:text-brand-deep mb-2 inline-block"
           >
             ← Volver a pedidos
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Pedido #{order.id.slice(0, 8)}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pedido #{order.id.slice(0, 8)}</h1>
         </div>
         <OrderStatusBadge status={order.status} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Productos</h2>
+          <div className="bg-white dark:bg-brand-deep/30 rounded-xl border border-gray-200 dark:border-brand-deep/50 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Productos</h2>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 font-medium text-gray-500">Producto</th>
-                  <th className="text-right py-2 font-medium text-gray-500">Precio</th>
-                  <th className="text-right py-2 font-medium text-gray-500">Cantidad</th>
-                  <th className="text-right py-2 font-medium text-gray-500">Subtotal</th>
+                  <th className="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Producto</th>
+                  <th className="text-right py-2 font-medium text-gray-500 dark:text-gray-400">Precio</th>
+                  <th className="text-right py-2 font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
+                  <th className="text-right py-2 font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
-                {order.items.map((item) => (
+                {order.items?.map((item) => (
                   <tr key={item.productId} className="border-b last:border-0">
-                    <td className="py-3 font-medium">{item.productName}</td>
-                    <td className="py-3 text-right">{formatCurrency(item.price)}</td>
-                    <td className="py-3 text-right">{item.quantity}</td>
-                    <td className="py-3 text-right font-semibold">
-                      {formatCurrency(item.price * item.quantity)}
+                    <td className="py-3 font-medium dark:text-gray-100">{item.productName || 'Producto'}</td>
+                    <td className="py-3 text-right dark:text-gray-100">{formatCurrency(item.unitPrice)}</td>
+                    <td className="py-3 text-right dark:text-gray-100">{item.amount}</td>
+                    <td className="py-3 text-right font-semibold dark:text-gray-100">
+                      {formatCurrency(item.unitPrice * item.amount)}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3} className="text-right py-3 font-semibold text-base">
+                  <td colSpan={3} className="text-right py-3 font-semibold text-base dark:text-gray-100">
                     Total
                   </td>
-                  <td className="text-right py-3 font-bold text-lg">{formatCurrency(order.total)}</td>
+                  <td className="text-right py-3 font-bold text-lg dark:text-gray-100">{formatCurrency(order.total)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -115,17 +127,17 @@ export function OrderDetailPage() {
         </div>
 
         <div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <div className="bg-white dark:bg-brand-deep/30 rounded-xl border border-gray-200 dark:border-brand-deep/50 p-6 space-y-4">
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Cliente</h3>
-              <p className="text-gray-900 font-medium">{order.customerName}</p>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Cliente</h3>
+              <p className="text-gray-900 dark:text-gray-100 font-medium">{order.customerName || 'Cliente'}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Fecha del pedido</h3>
-              <p className="text-gray-900">{formatDate(order.orderDate)}</p>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha del pedido</h3>
+              <p className="text-gray-900 dark:text-gray-100">{formatDate(order.createdAt)}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Estado</h3>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</h3>
               <div className="mt-1">
                 <OrderStatusBadge status={order.status} />
               </div>

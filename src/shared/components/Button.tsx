@@ -1,7 +1,7 @@
 import React from 'react'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
 }
@@ -18,10 +18,11 @@ export function Button({
   const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
   const variants: Record<string, string> = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-400',
+    primary: 'bg-brand text-white hover:bg-brand-deep focus:ring-brand-light',
+    secondary: 'bg-gold text-white hover:bg-gold-dark focus:ring-gold-light',
+    success: 'bg-mint-dark text-white hover:bg-mint-dark/90 focus:ring-mint',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
+    ghost: 'bg-transparent text-gray-600 dark:text-white/60 hover:bg-brand/10 hover:text-brand dark:hover:text-mint focus:ring-brand-light',
   }
 
   const sizes: Record<string, string> = {

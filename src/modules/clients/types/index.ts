@@ -4,5 +4,5 @@ export interface Client {
   email: string
   phone?: string
   isActive: boolean
-  createdAt: Date
+  createdAt: string
 }

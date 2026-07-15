@@ -14,16 +14,16 @@ export interface UpdateClientPayload {
 }
 
 export const clientsApi = {
-  getAll: () => api.get<Client[]>('/clients').then((r) => r.data),
+  getAll: (isActive?: boolean) => api.get<Client[]>('/customers', { params: { isActive } }).then((r) => r.data),
 
-  getById: (id: string) => api.get<Client>(`/clients/${id}`).then((r) => r.data),
+  getById: (id: string) => api.get<Client>(`/customers/${id}`).then((r) => r.data),
 
   create: (data: CreateClientPayload) =>
-    api.post<Client>('/clients', data).then((r) => r.data),
+    api.post<Client>('/customers', data).then((r) => r.data),
 
   update: (id: string, data: UpdateClientPayload) =>
-    api.put<Client>(`/clients/${id}`, data).then((r) => r.data),
+    api.patch<Client>(`/customers/${id}`, data).then((r) => r.data),
 
   deactivate: (id: string) =>
-    api.patch<Client>(`/clients/${id}/deactivate`).then((r) => r.data),
+    api.patch<Client>(`/customers/${id}/deactivate`).then((r) => r.data),
 }
