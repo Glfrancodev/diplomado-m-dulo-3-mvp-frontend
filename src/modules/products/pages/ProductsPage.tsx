@@ -60,7 +60,7 @@ export function ProductsPage() {
   if (loading && products.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
       </div>
     )
   }
@@ -90,10 +90,10 @@ export function ProductsPage() {
       key: 'isActive',
       header: 'Estado',
       render: (p) =>
-        p.isActive ? (
-          <Badge className="bg-green-100 text-green-800">Activo</Badge>
+          p.isActive ? (
+          <Badge className="bg-mint-dark/15 text-mint-dark">Activo</Badge>
         ) : (
-          <Badge className="bg-red-100 text-red-800">Inactivo</Badge>
+          <Badge className="bg-red-100 text-red-700">Inactivo</Badge>
         ),
     },
     {
@@ -128,8 +128,8 @@ export function ProductsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-        <Button onClick={openCreateModal}>+ Nuevo Producto</Button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Productos</h1>
+        <Button variant="primary" onClick={openCreateModal}>+ Nuevo Producto</Button>
       </div>
 
       <Table columns={columns} data={products} onRowClick={openEditModal} emptyMessage="No hay productos registrados" />

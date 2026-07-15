@@ -6,7 +6,7 @@ import { useClientStore } from '../../clients/store'
 import { OrderForm } from '../components/OrderForm'
 import { ToastContainer } from '../../../shared/components/ToastContainer'
 import { useToast } from '../../../shared/hooks/useToast'
-import type { OrderItem } from '../types'
+import type { OrderFormItem } from '../types'
 
 export function NewOrderPage() {
   const navigate = useNavigate()
@@ -23,7 +23,7 @@ export function NewOrderPage() {
     if (clients.length === 0) fetchClients()
   }, [products.length, clients.length, fetchProducts, fetchClients])
 
-  const handleSubmit = async (data: { customerId: string; items: OrderItem[] }) => {
+  const handleSubmit = async (data: { customerId: string; items: OrderFormItem[] }) => {
     const result = await placeOrder({
       customerId: data.customerId,
       items: data.items,
@@ -39,11 +39,11 @@ export function NewOrderPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Nuevo Pedido</h1>
-        <p className="text-sm text-gray-500 mt-1">Complete los datos para crear un nuevo pedido</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Nuevo Pedido</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Complete los datos para crear un nuevo pedido</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
+      <div className="bg-white dark:bg-brand-deep/30 rounded-xl border border-gray-200 dark:border-brand-deep/50 p-6 max-w-2xl">
         <OrderForm onSubmit={handleSubmit} onCancel={() => navigate('/orders')} isSubmitting={orderLoading} />
       </div>
 

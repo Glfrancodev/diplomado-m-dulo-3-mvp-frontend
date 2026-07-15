@@ -60,7 +60,7 @@ export function ClientsPage() {
   if (loading && clients.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
       </div>
     )
   }
@@ -86,10 +86,10 @@ export function ClientsPage() {
       key: 'isActive',
       header: 'Estado',
       render: (c) =>
-        c.isActive ? (
-          <Badge className="bg-green-100 text-green-800">Activo</Badge>
+          c.isActive ? (
+          <Badge className="bg-mint-dark/15 text-mint-dark">Activo</Badge>
         ) : (
-          <Badge className="bg-red-100 text-red-800">Inactivo</Badge>
+          <Badge className="bg-red-100 text-red-700">Inactivo</Badge>
         ),
     },
     {
@@ -124,8 +124,8 @@ export function ClientsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-        <Button onClick={openCreateModal}>+ Nuevo Cliente</Button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clientes</h1>
+        <Button variant="primary" onClick={openCreateModal}>+ Nuevo Cliente</Button>
       </div>
 
       <Table columns={columns} data={clients} onRowClick={openEditModal} emptyMessage="No hay clientes registrados" />

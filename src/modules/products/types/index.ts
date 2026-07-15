@@ -5,5 +5,5 @@ export interface Product {
   price: number
   stock: number
   isActive: boolean
-  createdAt: Date
+  createdAt: string
 }

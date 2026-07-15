@@ -13,7 +13,7 @@ export function OrdersPage() {
   if (loading && orders.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
       </div>
     )
   }
@@ -35,9 +35,9 @@ export function OrdersPage() {
     },
     { key: 'customerName', header: 'Cliente' },
     {
-      key: 'orderDate',
+      key: 'createdAt',
       header: 'Fecha',
-      render: (o) => formatDate(o.orderDate),
+      render: (o) => formatDate(o.createdAt),
     },
     {
       key: 'total',
@@ -47,7 +47,7 @@ export function OrdersPage() {
     {
       key: 'items',
       header: 'Productos',
-      render: (o) => `${o.items.length} producto(s)`,
+      render: (o) => `${o.items?.length || 0} producto(s)`,
     },
     {
       key: 'status',
@@ -59,8 +59,8 @@ export function OrdersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-        <Button onClick={() => navigate('/orders/new')}>+ Nuevo Pedido</Button>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pedidos</h1>
+        <Button variant="primary" onClick={() => navigate('/orders/new')}>+ Nuevo Pedido</Button>
       </div>
 
       <Table

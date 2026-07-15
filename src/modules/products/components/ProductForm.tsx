@@ -39,13 +39,13 @@ export function ProductForm({ onSubmit, onCancel, initialData, isLoading }: Prod
         required
       />
       <div className="mb-4">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Descripción
         </label>
         <textarea
           id="description"
           rows={3}
-          className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-500"
+          className="block w-full rounded-md border border-gray-300 dark:border-brand/30 bg-white dark:bg-brand-deep/50 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:border-brand focus:ring-brand/30 dark:text-gray-100"
           placeholder="Descripción del producto (opcional)"
           {...register('description')}
         />
