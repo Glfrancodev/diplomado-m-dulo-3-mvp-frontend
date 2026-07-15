@@ -19,7 +19,7 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`${typeStyles[toast.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-3 animate-slide-in`}
+          className={`${typeStyles[toast.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-3`}
           role="alert"
         >
           <p className="text-sm">{toast.message}</p>

@@ -33,18 +33,18 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
-        className="relative z-10 w-full max-w-lg mx-4 bg-white rounded-xl shadow-xl"
+        className="relative z-10 w-full max-w-lg mx-4 bg-white dark:bg-brand-deep rounded-xl shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-deepest/10 bg-brand-deepest rounded-t-xl">
+          <h2 id="modal-title" className="text-lg font-semibold text-white">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-white/60 hover:text-white transition-colors"
             aria-label="Cerrar"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -52,7 +52,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             </svg>
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4 dark:text-gray-100">{children}</div>
       </div>
     </div>
   )
