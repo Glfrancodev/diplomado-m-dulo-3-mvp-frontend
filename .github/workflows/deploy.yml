@@ -1,0 +1,95 @@
+# phoenix-orders-frontend/.github/workflows/deploy.yml
+# CI en cada Pull Request (main/develop) + CD al hacer merge/push a main.
+name: Frontend CI/CD
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # CI: se ejecuta SIEMPRE (PRs y push).
+  # ---------------------------------------------------------------------------
+  ci:
+    name: CI (lint, test, build, artefacto)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Tests
+        run: npm run test --if-present
+
+      # VITE_API_URL se inyecta en BUILD TIME (queda horneada en el bundle).
+      - name: Build de producción
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      # Artefacto: SOLO la carpeta dist/ estática generada.
+      - name: Empaquetar artefacto (solo dist)
+        run: zip -r frontend-dist.zip dist
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist.zip
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # CD: solo en push a main (merge de un PR a main).
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: CD (publicar en Nginx del EC2)
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar artefacto del job CI
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+
+      - name: Copiar artefacto al EC2 por SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: frontend-dist.zip
+          target: /tmp
+
+      - name: Publicar en la ruta de Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            # Descomprimir en carpeta temporal
+            rm -rf /tmp/frontend-new && mkdir -p /tmp/frontend-new
+            unzip -o /tmp/frontend-dist.zip -d /tmp/frontend-new
+
+            # Reemplazar el contenido servido por Nginx (limpio)
+            sudo rm -rf /var/www/galflabs/*
+            sudo cp -r /tmp/frontend-new/dist/* /var/www/galflabs/
+
+            # Limpieza y recarga
+            rm -rf /tmp/frontend-new /tmp/frontend-dist.zip
+            sudo systemctl reload nginx
