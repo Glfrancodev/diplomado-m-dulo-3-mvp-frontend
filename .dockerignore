@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.github
+.gitignore
+.env
+.env.*
+!.env.template
+*.log
+*.md
+pnpm-lock.yaml
+pnpm-workspace.yaml
+tsconfig.tsbuildinfo
+.DS_Store

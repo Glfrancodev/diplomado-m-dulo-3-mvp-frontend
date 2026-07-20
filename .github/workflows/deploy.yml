@@ -1,5 +1,4 @@
-# phoenix-orders-frontend/.github/workflows/deploy.yml
-# CI en cada Pull Request (main/develop) + CD al hacer merge/push a main.
+# CI en PR/push + CD: build imagen → Docker Hub → deploy contenedor en EC2.
 name: Frontend CI/CD
 
 on:
@@ -8,12 +7,12 @@ on:
   push:
     branches: [main]
 
+env:
+  IMAGE_NAME: phoenix-frontend
+
 jobs:
-  # ---------------------------------------------------------------------------
-  # CI: se ejecuta SIEMPRE (PRs y push).
-  # ---------------------------------------------------------------------------
   ci:
-    name: CI (lint, test, build, artefacto)
+    name: CI (lint, test, build)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,62 +33,90 @@ jobs:
       - name: Tests
         run: npm run test --if-present
 
-      # VITE_API_URL se inyecta en BUILD TIME (queda horneada en el bundle).
-      - name: Build de producción
+      - name: Build de producción (verifica que compile)
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      # Artefacto: SOLO la carpeta dist/ estática generada.
-      - name: Empaquetar artefacto (solo dist)
-        run: zip -r frontend-dist.zip dist
-
-      - name: Subir artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend-dist.zip
-          retention-days: 1
-
-  # ---------------------------------------------------------------------------
-  # CD: solo en push a main (merge de un PR a main).
-  # ---------------------------------------------------------------------------
-  deploy:
-    name: CD (publicar en Nginx del EC2)
+  docker:
+    name: Build & push imagen (Docker Hub)
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      # Solo el tag (SHA). NO incluir username en outputs: GitHub vacía outputs que contienen secrets.
+      image_tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - name: Descargar artefacto del job CI
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Copiar artefacto al EC2 por SCP
-        uses: appleboy/scp-action@v0.1.7
+      - name: Tags de imagen
+        id: meta
+        run: |
+          TAG="${GITHUB_SHA::7}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: CD (contenedor en EC2)
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
+    steps:
+      - name: Deploy por SSH (docker pull + run)
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: frontend-dist.zip
-          target: /tmp
-
-      - name: Publicar en la ruta de Nginx
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG
           script: |
-            set -e
-            # Descomprimir en carpeta temporal
-            rm -rf /tmp/frontend-new && mkdir -p /tmp/frontend-new
-            unzip -o /tmp/frontend-dist.zip -d /tmp/frontend-new
+            set -euo pipefail
 
-            # Reemplazar el contenido servido por Nginx (limpio)
-            sudo rm -rf /var/www/galflabs/*
-            sudo cp -r /tmp/frontend-new/dist/* /var/www/galflabs/
+            IMAGE="${DOCKERHUB_USERNAME}/phoenix-frontend:${IMAGE_TAG}"
+            echo "Desplegando imagen: ${DOCKERHUB_USERNAME}/phoenix-frontend:${IMAGE_TAG}"
 
-            # Limpieza y recarga
-            rm -rf /tmp/frontend-new /tmp/frontend-dist.zip
-            sudo systemctl reload nginx
+            if [ -z "${IMAGE_TAG}" ]; then
+              echo "ERROR: IMAGE_TAG vacío"
+              exit 1
+            fi
+
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+            docker pull "$IMAGE"
+
+            docker stop phoenix-frontend 2>/dev/null || true
+            docker rm phoenix-frontend 2>/dev/null || true
+
+            docker run -d \
+              --name phoenix-frontend \
+              --restart unless-stopped \
+              -p 80:8080 \
+              "$IMAGE"
+
+            docker image prune -f
