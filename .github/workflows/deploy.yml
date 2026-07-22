@@ -1,5 +1,9 @@
-# CI en PR/push + CD: build imagen → Docker Hub → deploy contenedor en EC2.
-name: Frontend CI/CD
+# CI/CD del frontend en AWS:
+#   CI (build) -> build imagen -> scan Trivy (gate) -> push a ECR -> deploy en EC2.
+# Autenticación a AWS por access keys (usuario IAM phoenix-frontend-ci).
+# El backend corre como contenedor en el MISMO EC2, en la red Docker 'web';
+# Nginx hace reverse-proxy de /api hacia él.
+name: Frontend CI/CD (AWS ECR + EC2)
 
 on:
   pull_request:
@@ -7,21 +11,27 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 env:
-  IMAGE_NAME: phoenix-frontend
+  AWS_REGION: us-east-1            # <-- ajusta a tu región
+  ECR_REPOSITORY: phoenix-frontend
+  CONTAINER_NAME: phoenix-frontend
+  NODE_VERSION: '22'
 
 jobs:
+  # ---------------------------------------------------------------------------
   ci:
     name: CI (lint, test, build)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node 22
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -35,88 +45,140 @@ jobs:
 
       - name: Build de producción (verifica que compile)
         run: npm run build
-        env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-  docker:
-    name: Build & push imagen (Docker Hub)
+  # ---------------------------------------------------------------------------
+  build-scan-push:
+    name: Build → Scan (Trivy) → Push a ECR
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      # Solo el tag (SHA). NO incluir username en outputs: GitHub vacía outputs que contienen secrets.
       image_tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Tags de imagen
-        id: meta
-        run: |
-          TAG="${GITHUB_SHA::7}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
+      - name: Configurar credenciales AWS (access keys)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login a Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag de imagen (SHA corto)
+        id: meta
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push
+      # Build local (load) para poder ESCANEAR antes de publicar en ECR.
+      - name: Build imagen (local, para escanear)
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          load: true
+          tags: local/${{ env.ECR_REPOSITORY }}:scan
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL }}
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            VITE_API_URL=/api
+            GIT_SHA=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # GATE de seguridad: falla el pipeline si hay CVE CRITICAL/HIGH con fix.
+      - name: Escaneo de vulnerabilidades (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: local/${{ env.ECR_REPOSITORY }}:scan
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      # SBOM: inventario de dependencias como artefacto auditable.
+      - name: Generar SBOM (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: local/${{ env.ECR_REPOSITORY }}:scan
+          format: cyclonedx
+          output: sbom.cdx.json
+      - name: Subir SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+
+      # Solo si pasó el scan: reetiqueta y publica a ECR (SHA + latest).
+      - name: Push a ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker tag local/${ECR_REPOSITORY}:scan  ${ECR_REGISTRY}/${ECR_REPOSITORY}:${TAG}
+          docker tag local/${ECR_REPOSITORY}:scan  ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${TAG}
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+
+  # ---------------------------------------------------------------------------
   deploy:
-    name: CD (contenedor en EC2)
-    needs: docker
+    name: Deploy en EC2 (pull desde ECR + run endurecido)
+    needs: build-scan-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
     steps:
-      - name: Deploy por SSH (docker pull + run)
+      - name: Deploy por SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ needs.build-scan-push.outputs.image_tag }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG
+          envs: IMAGE_TAG,AWS_REGION,ECR_REPOSITORY,CONTAINER_NAME
           script: |
             set -euo pipefail
 
-            IMAGE="${DOCKERHUB_USERNAME}/phoenix-frontend:${IMAGE_TAG}"
-            echo "Desplegando imagen: ${DOCKERHUB_USERNAME}/phoenix-frontend:${IMAGE_TAG}"
+            ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+            ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+            IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
-            if [ -z "${IMAGE_TAG}" ]; then
-              echo "ERROR: IMAGE_TAG vacío"
-              exit 1
-            fi
+            if [ -z "${IMAGE_TAG}" ]; then echo "ERROR: IMAGE_TAG vacío"; exit 1; fi
+            echo "Desplegando ${IMAGE}"
 
-            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            # Login a ECR usando el ROL IAM de la instancia (sin claves en el host).
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            # Red compartida frontend <-> backend (idempotente).
+            docker network create web 2>/dev/null || true
 
             docker pull "$IMAGE"
 
-            docker stop phoenix-frontend 2>/dev/null || true
-            docker rm phoenix-frontend 2>/dev/null || true
+            docker stop  "$CONTAINER_NAME" 2>/dev/null || true
+            docker rm    "$CONTAINER_NAME" 2>/dev/null || true
 
+            # Run endurecido: non-root (en la imagen) + read-only + sin capabilities
+            # + sin escalada de privilegios + límites de recursos + tmpfs escribibles.
             docker run -d \
-              --name phoenix-frontend \
+              --name "$CONTAINER_NAME" \
               --restart unless-stopped \
+              --network web \
               -p 80:8080 \
+              --read-only \
+              --tmpfs /tmp \
+              --tmpfs /var/cache/nginx \
+              --cap-drop ALL \
+              --security-opt no-new-privileges \
+              --memory 128m --cpus 0.5 \
               "$IMAGE"
 
             docker image prune -f
