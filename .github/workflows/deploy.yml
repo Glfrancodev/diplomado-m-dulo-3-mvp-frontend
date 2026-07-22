@@ -91,7 +91,7 @@ jobs:
 
       # GATE de seguridad: falla el pipeline si hay CVE CRITICAL/HIGH con fix.
       - name: Escaneo de vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: local/${{ env.ECR_REPOSITORY }}:scan
           format: table
@@ -102,7 +102,7 @@ jobs:
 
       # SBOM: inventario de dependencias como artefacto auditable.
       - name: Generar SBOM (Trivy)
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: local/${{ env.ECR_REPOSITORY }}:scan
           format: cyclonedx
